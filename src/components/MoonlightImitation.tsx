@@ -39,7 +39,7 @@ export default function MoonlightImitation() {
 
         <motion.button
           initial={{ opacity: 0.6, scale: 0.95 }}
-          hover={{ opacity: 0.8, scale: 1 }}
+          whileHover={{ opacity: 0.8, scale: 1 }}
           transition={{ duration: 0.3 }}
           className="flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm rounded-md border border-white/20 text-white/70 hover:text-white/90 disabled:opacity-50"
           disabled
