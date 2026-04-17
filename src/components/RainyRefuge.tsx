@@ -58,8 +58,6 @@ export default function RainyRefuge() {
     e.preventDefault();
     if (newPostContent.trim()) {
       try {
-        setLoading(true);
-        setError(null);
         const { data, error } = await supabase
           .from('messages')
           .insert({
@@ -71,7 +69,6 @@ export default function RainyRefuge() {
           .single();
 
         if (error) {
-          console.error('Error submitting post:', error);
           throw error;
         }
 
@@ -83,15 +80,12 @@ export default function RainyRefuge() {
             content: data.content,
             mood: data.mood
           };
-          // 使用函数式更新确保基于最新状态
-          setPosts(prevPosts => [newPost, ...prevPosts]);
+          setPosts([newPost, ...posts]);
           setNewPostContent('');
         }
       } catch (err) {
         setError('提交留言失败');
         console.error('Error submitting post:', err);
-      } finally {
-        setLoading(false);
       }
     }
   };

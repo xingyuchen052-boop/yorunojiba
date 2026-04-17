@@ -1,66 +1,121 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Song {
-  id: string;
-  title: string;
-  lyric: string;
-  neteaseUrl: string;
-  bilibiliUrl: string;
-  imageUrl: string;
+interface Album {
+  id: number;
+  name: string;
+  picUrl: string;
+  blurPicUrl: string;
+  publishTime: number;
+  size: number;
 }
 
-const songs: Song[] = [
-  {
-    id: '1',
-    title: '夜明けと蛍',
-    lyric: '夜明けと蛍のように、消えてしまいそうな光',
-    neteaseUrl: 'https://music.163.com/song?id=28806111',
-    bilibiliUrl: 'https://www.bilibili.com/video/BV1xs41127Ko',
-    imageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fireflies%20at%20dawn%2C%20soft%20light%2C%20peaceful%20atmosphere%2C%20anime%20style&image_size=landscape_4_3'
-  },
-  {
-    id: '2',
-    title: 'ウミユリ海底譚',
-    lyric: '海百合海底谭',
-    neteaseUrl: 'https://music.163.com/song?id=36990297',
-    bilibiliUrl: 'https://www.bilibili.com/video/BV1ds41127Yd',
-    imageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=seafloor%20scene%2C%20sea%20lilies%2C%20deep%20ocean%2C%20anime%20style&image_size=landscape_4_3'
-  },
-  {
-    id: '3',
-    title: 'ただ君に晴れ',
-    lyric: 'ただ君に晴れ',
-    neteaseUrl: 'https://music.163.com/song?id=1330874881',
-    bilibiliUrl: 'https://www.bilibili.com/video/BV1Vb411C7Jq',
-    imageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=sunny%20day%2C%20warm%20light%2C%20summer%20atmosphere%2C%20anime%20style&image_size=landscape_4_3'
-  },
-  {
-    id: '4',
-    title: '盗作',
-    lyric: '盗作',
-    neteaseUrl: 'https://music.163.com/song?id=1330874880',
-    bilibiliUrl: 'https://www.bilibili.com/video/BV1Wb411C7fS',
-    imageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=melancholic%20mood%2C%20night%20scene%2C%20anime%20style&image_size=landscape_4_3'
-  },
-  {
-    id: '5',
-    title: '花に亡霊',
-    lyric: '花に亡霊',
-    neteaseUrl: 'https://music.163.com/song?id=1330874879',
-    bilibiliUrl: 'https://www.bilibili.com/video/BV1ib411C7iH',
-    imageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=ghost%20in%20flowers%2C%20ethereal%20beauty%2C%20soft%20colors%2C%20anime%20style&image_size=landscape_4_3'
-  }
-];
+interface Song {
+  id: number;
+  name: string;
+  artists?: Array<{ name: string }>;
+  ar?: Array<{ name: string }>;
+  album: { name: string };
+}
 
 export default function JunePole() {
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+  const [songs, setSongs] = useState<Song[]>([]);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [albumLoading, setAlbumLoading] = useState(false);
+  const [albumError, setAlbumError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // 获取 Yorushika 的所有专辑
+  const fetchAlbums = async (isLoadMore = false) => {
+    try {
+      if (isLoadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      const currentOffset = isLoadMore ? offset : 0;
+      const response = await fetch(`https://api-enhanced-3cbx.vercel.app/artist/album?id=12390232&limit=30&offset=${currentOffset}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch albums');
+      }
+      const data = await response.json();
+      if (data.code === 200 && data.hotAlbums) {
+        if (isLoadMore) {
+          setAlbums(prevAlbums => [...prevAlbums, ...data.hotAlbums]);
+          setOffset(prevOffset => prevOffset + 30);
+        } else {
+          setAlbums(data.hotAlbums);
+          setOffset(30);
+        }
+        setHasMore(data.hotAlbums.length === 30);
+      } else {
+        throw new Error('Invalid response data');
+      }
+    } catch (err) {
+      setError('获取专辑列表失败');
+      console.error('Error fetching albums:', err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // 获取专辑下的所有歌曲
+  const fetchSongs = async (albumId: number) => {
+    try {
+      setAlbumLoading(true);
+      setAlbumError(null);
+      const response = await fetch(`https://api-enhanced-3cbx.vercel.app/album?id=${albumId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch songs');
+      }
+      const data = await response.json();
+      if (data.code === 200 && data.songs) {
+        setSongs(data.songs);
+      } else {
+        throw new Error('Invalid response data');
+      }
+    } catch (err) {
+      setAlbumError('获取歌曲列表失败');
+      console.error('Error fetching songs:', err);
+    } finally {
+      setAlbumLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlbums();
+  }, []);
+
+  const handleAlbumClick = (album: Album) => {
+    setSelectedAlbum(album);
+    setSongs([]);
+    setSelectedSong(null);
+    fetchSongs(album.id);
+  };
+
+  const handleSongClick = (song: Song) => {
+    setSelectedSong(song);
+  };
+
+  // 获取歌手名称
+  const getArtistNames = (song: Song) => {
+    const artists = song.artists || song.ar || [];
+    return artists.map(artist => artist?.name || '').filter(Boolean).join(', ');
+  };
 
   return (
     <div className="min-h-screen bg-background text-text p-4 md:p-8">
-      <motion.h1 
+      <motion.h1
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
@@ -69,85 +124,170 @@ export default function JunePole() {
         六月、電柱の陰
       </motion.h1>
 
-      {/* 歌曲网格布局 */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {songs.map((song, index) => (
-          <motion.div
-            key={song.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: index * 0.1 }}
-            className="cursor-pointer group"
-            onClick={() => setSelectedSong(song)}
-          >
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden border border-white/20 hover:border-white/40 transition-colors">
-              <div className="relative h-48 overflow-hidden">
-                <img 
-                  src={song.imageUrl} 
-                  alt={song.title} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent opacity-70"></div>
-                <div className="absolute bottom-0 left-0 p-4">
-                  <h3 className="text-xl font-serif-jiba">{song.title}</h3>
-                </div>
-              </div>
-              <div className="p-4">
-                <p className="text-sm text-white/70 line-clamp-2">{song.lyric}</p>
-              </div>
+      {/* 专辑列表 */}
+      <div className="max-w-6xl mx-auto mb-12">
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="w-12 h-12 border-4 border-text border-t-transparent rounded-full mx-auto animate-spin"></div>
+            <p className="mt-4 text-white/70">加载专辑中...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-red-400 mb-4">{error}</p>
+            <button
+              onClick={() => fetchAlbums()}
+              className="px-6 py-2 bg-text text-background rounded-md hover:bg-opacity-90 transition-colors"
+            >
+              重试
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {albums.map((album, index) => (
+                <motion.div
+                  key={album.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  className="cursor-pointer group"
+                  onClick={() => handleAlbumClick(album)}
+                >
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden border border-white/20 hover:border-white/40 transition-colors">
+                    <div className="relative aspect-square overflow-hidden">
+                      <img
+                        src={album.blurPicUrl || album.picUrl}
+                        alt={album.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent opacity-70"></div>
+                      <div className="absolute bottom-0 left-0 p-3">
+                        <h3 className="text-sm font-serif-jiba line-clamp-2">{album.name}</h3>
+                        <p className="text-xs text-white/60 mt-1">
+                          {new Date(album.publishTime).toLocaleDateString('ja-JP')}
+                        </p>
+                        <p className="text-xs text-white/60 mt-1">{album.size} 首歌曲</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          </motion.div>
-        ))}
+            
+            {/* 加载更多按钮 */}
+            {hasMore && (
+              <div className="mt-8 text-center">
+                <button
+                  onClick={() => fetchAlbums(true)}
+                  disabled={loadingMore}
+                  className="px-6 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-md hover:bg-white/20 transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? '加载中...' : '加载更多专辑'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      {/* 弹出窗口 */}
+      {/* 歌曲列表 */}
+      {selectedAlbum && (
+        <div className="max-w-6xl mx-auto mb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-6"
+          >
+            <button
+              onClick={() => setSelectedAlbum(null)}
+              className="text-white/70 hover:text-white transition-colors mb-4 inline-flex items-center"
+            >
+              ← 返回专辑列表
+            </button>
+            <h2 className="text-2xl font-serif-jiba">{selectedAlbum.name}</h2>
+          </motion.div>
+
+          {albumLoading ? (
+            <div className="text-center py-12">
+              <div className="w-12 h-12 border-4 border-text border-t-transparent rounded-full mx-auto animate-spin"></div>
+              <p className="mt-4 text-white/70">正在调频...</p>
+            </div>
+          ) : albumError ? (
+            <div className="text-center py-12">
+              <p className="text-red-400 mb-4">{albumError}</p>
+              <button
+                onClick={() => fetchSongs(selectedAlbum.id)}
+                className="px-6 py-2 bg-text text-background rounded-md hover:bg-opacity-90 transition-colors"
+              >
+                重试
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+              <div className="space-y-2">
+                {songs.map((song, index) => (
+                  <motion.div
+                    key={song.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.05 }}
+                    className="flex items-center justify-between p-3 rounded-md hover:bg-white/10 cursor-pointer transition-colors"
+                    onClick={() => handleSongClick(song)}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-white/50 mr-4 w-6 text-center">{index + 1}</span>
+                      <div>
+                        <h3 className="text-sm">{song.name || '未知歌曲'}</h3>
+                        <p className="text-xs text-white/60">
+                          {getArtistNames(song)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-white/50">
+                      ▶
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 播放器 */}
       <AnimatePresence>
         {selectedSong && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-            onClick={() => setSelectedSong(null)}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-2xl z-50"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white/10 backdrop-blur-md rounded-lg p-6 max-w-md w-full border border-white/20"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-2xl font-serif-jiba">{selectedSong.title}</h3>
-                <button 
-                  onClick={() => setSelectedSong(null)}
-                  className="text-white/70 hover:text-white transition-colors"
-                >
-                  ×
-                </button>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 flex items-center justify-between">
+              <div className="flex items-center flex-1">
+                <div className="w-12 h-12 bg-white/20 rounded mr-4 flex items-center justify-center">
+                  <span className="text-xl">🎵</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium">{selectedSong.name || '未知歌曲'}</h3>
+                  <p className="text-xs text-white/60">
+                    {getArtistNames(selectedSong)} - {selectedSong.album?.name || '未知专辑'}
+                  </p>
+                </div>
               </div>
-              <div className="mb-6">
-                <p className="text-white/80 italic">{selectedSong.lyric}</p>
+              <div className="flex items-center space-x-4">
+                <iframe
+                  src={`https://music.163.com/outchain/player?type=2&id=${selectedSong.id}&auto=1&height=66`}
+                  width="280"
+                  height="66"
+                  frameBorder="0"
+                  allowFullScreen
+                  className="block"
+                  title="网易云音乐播放器"
+                />
               </div>
-              <div className="flex space-x-4">
-                <a 
-                  href={selectedSong.neteaseUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex-1 px-4 py-2 bg-white/20 rounded-md text-center hover:bg-white/30 transition-colors"
-                >
-                  网易云音乐
-                </a>
-                <a 
-                  href={selectedSong.bilibiliUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex-1 px-4 py-2 bg-white/20 rounded-md text-center hover:bg-white/30 transition-colors"
-                >
-                  B站
-                </a>
-              </div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
