@@ -43,6 +43,16 @@ export default function WordHole() {
     description: ''
   });
   
+  // 编辑主题相关状态
+  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
+  const [editTopicForm, setEditTopicForm] = useState({
+    title: '',
+    category: '',
+    cover_url: '',
+    description: ''
+  });
+  const [showEditTopic, setShowEditTopic] = useState(false);
+  
   // 新增考据相关状态
   const [newResearch, setNewResearch] = useState({
     sub_title: '',
@@ -53,6 +63,22 @@ export default function WordHole() {
   });
   const [showAddResearch, setShowAddResearch] = useState(false);
   const [previewContent, setPreviewContent] = useState('');
+  
+  // 编辑考据相关状态
+  const [editingResearch, setEditingResearch] = useState<Research | null>(null);
+  const [editResearchForm, setEditResearchForm] = useState({
+    sub_title: '',
+    content: '',
+    image_url: '',
+    author: '',
+    type: 'fan' as 'official' | 'fan'
+  });
+  const [showEditResearch, setShowEditResearch] = useState(false);
+  
+  // 删除确认相关状态
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteType, setDeleteType] = useState<'topic' | 'research'>('topic');
+  const [deleteId, setDeleteId] = useState('');
 
   // 从 Supabase 获取主题列表
   const fetchTopics = async () => {
@@ -157,6 +183,100 @@ export default function WordHole() {
     }
   };
 
+  // 编辑主题
+  const handleEditTopic = (topic: Topic) => {
+    setEditingTopic(topic);
+    setEditTopicForm({
+      title: topic.title,
+      category: topic.category,
+      cover_url: topic.cover_url,
+      description: topic.description
+    });
+    setShowEditTopic(true);
+  };
+
+  // 提交编辑主题
+  const handleEditTopicSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTopic && editTopicForm.title.trim() && editTopicForm.category && editTopicForm.cover_url.trim() && editTopicForm.description.trim()) {
+      try {
+        setSubmitting(true);
+        const { data, error } = await supabase
+          .from('topics')
+          .update({
+            title: editTopicForm.title.trim(),
+            category: editTopicForm.category,
+            cover_url: editTopicForm.cover_url.trim(),
+            description: editTopicForm.description.trim()
+          })
+          .eq('id', editingTopic.id)
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
+          setTopics(topics.map(topic => topic.id === editingTopic.id ? data : topic));
+          if (selectedTopic && selectedTopic.id === editingTopic.id) {
+            setSelectedTopic(data);
+          }
+          setShowEditTopic(false);
+          setEditingTopic(null);
+        }
+      } catch (err) {
+        setError('编辑主题失败');
+        console.error('Error editing topic:', err);
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  };
+
+  // 删除主题
+  const handleDeleteTopic = (topicId: string) => {
+    setDeleteType('topic');
+    setDeleteId(topicId);
+    setShowDeleteConfirm(true);
+  };
+
+  // 确认删除主题
+  const confirmDeleteTopic = async () => {
+    if (deleteId) {
+      try {
+        setSubmitting(true);
+        // 先删除相关的考据内容
+        await supabase
+          .from('researches')
+          .delete()
+          .eq('topic_id', deleteId);
+        
+        // 再删除主题
+        const { error } = await supabase
+          .from('topics')
+          .delete()
+          .eq('id', deleteId);
+
+        if (error) {
+          throw error;
+        }
+
+        setTopics(topics.filter(topic => topic.id !== deleteId));
+        if (selectedTopic && selectedTopic.id === deleteId) {
+          setSelectedTopic(null);
+          setResearches([]);
+        }
+        setShowDeleteConfirm(false);
+      } catch (err) {
+        setError('删除主题失败');
+        console.error('Error deleting topic:', err);
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  };
+
   // 提交新的考据内容
   const handleResearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +308,88 @@ export default function WordHole() {
       } catch (err) {
         setError('提交考据内容失败');
         console.error('Error submitting research:', err);
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  };
+
+  // 编辑考据内容
+  const handleEditResearch = (research: Research) => {
+    setEditingResearch(research);
+    setEditResearchForm({
+      sub_title: research.sub_title,
+      content: research.content,
+      image_url: research.image_url,
+      author: research.author,
+      type: research.type
+    });
+    setShowEditResearch(true);
+  };
+
+  // 提交编辑考据内容
+  const handleEditResearchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingResearch && editResearchForm.sub_title.trim() && editResearchForm.content.trim() && editResearchForm.author.trim()) {
+      try {
+        setSubmitting(true);
+        const { data, error } = await supabase
+          .from('researches')
+          .update({
+            sub_title: editResearchForm.sub_title.trim(),
+            content: editResearchForm.content.trim(),
+            image_url: editResearchForm.image_url.trim(),
+            author: editResearchForm.author.trim(),
+            type: editResearchForm.type
+          })
+          .eq('id', editingResearch.id)
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
+          setResearches(researches.map(research => research.id === editingResearch.id ? data : research));
+          setShowEditResearch(false);
+          setEditingResearch(null);
+        }
+      } catch (err) {
+        setError('编辑考据内容失败');
+        console.error('Error editing research:', err);
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  };
+
+  // 删除考据内容
+  const handleDeleteResearch = (researchId: string) => {
+    setDeleteType('research');
+    setDeleteId(researchId);
+    setShowDeleteConfirm(true);
+  };
+
+  // 确认删除考据内容
+  const confirmDeleteResearch = async () => {
+    if (deleteId) {
+      try {
+        setSubmitting(true);
+        const { error } = await supabase
+          .from('researches')
+          .delete()
+          .eq('id', deleteId);
+
+        if (error) {
+          throw error;
+        }
+
+        setResearches(researches.filter(research => research.id !== deleteId));
+        setShowDeleteConfirm(false);
+      } catch (err) {
+        setError('删除考据内容失败');
+        console.error('Error deleting research:', err);
       } finally {
         setSubmitting(false);
       }
@@ -241,6 +443,13 @@ export default function WordHole() {
   useEffect(() => {
     setPreviewContent(renderMarkdown(newResearch.content));
   }, [newResearch.content]);
+
+  // 监听编辑内容变化，更新预览
+  useEffect(() => {
+    if (showEditResearch) {
+      setPreviewContent(renderMarkdown(editResearchForm.content));
+    }
+  }, [editResearchForm.content, showEditResearch]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-950/30 to-background text-text p-4 md:p-8 relative">
@@ -360,6 +569,83 @@ export default function WordHole() {
           </motion.div>
         )}
 
+        {/* 编辑主题表单 */}
+        {showEditTopic && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 max-w-md w-full border border-white/20">
+              <h3 className="text-xl font-serif-jiba mb-4">编辑主题</h3>
+              <form onSubmit={handleEditTopicSubmit}>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    value={editTopicForm.title}
+                    onChange={(e) => setEditTopicForm({ ...editTopicForm, title: e.target.value })}
+                    placeholder="主题标题"
+                    className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                </div>
+                <div className="mb-4">
+                  <select
+                    value={editTopicForm.category}
+                    onChange={(e) => setEditTopicForm({ ...editTopicForm, category: e.target.value })}
+                    className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                  >
+                    <option value="">选择分类</option>
+                    <option value="专辑">专辑</option>
+                    <option value="角色">角色</option>
+                    <option value="物品">物品</option>
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    value={editTopicForm.cover_url}
+                    onChange={(e) => setEditTopicForm({ ...editTopicForm, cover_url: e.target.value })}
+                    placeholder="封面图片链接"
+                    className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                </div>
+                <div className="mb-4">
+                  <textarea
+                    value={editTopicForm.description}
+                    onChange={(e) => setEditTopicForm({ ...editTopicForm, description: e.target.value })}
+                    placeholder="主题简介"
+                    className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                    rows={3}
+                  />
+                </div>
+                <div className="flex justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditTopic(false);
+                      setEditingTopic(null);
+                    }}
+                    className="px-4 py-2 bg-white/20 rounded-md hover:bg-white/30 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-text text-background rounded-md hover:bg-opacity-90 transition-colors"
+                    disabled={submitting}
+                  >
+                    {submitting ? '提交中...' : '保存'}
+                  </button>
+                </div>
+                {error && (
+                  <div className="mt-4 text-red-400 text-sm">{error}</div>
+                )}
+              </form>
+            </div>
+          </motion.div>
+        )}
+
         {/* 新增考据内容表单 */}
         {showAddResearch && (
           <motion.div
@@ -475,6 +761,157 @@ export default function WordHole() {
             </div>
           </motion.div>
         )}
+
+        {/* 编辑考据内容表单 */}
+        {showEditResearch && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 max-w-4xl w-full border border-white/20">
+              <h3 className="text-xl font-serif-jiba mb-4">编辑考据分支</h3>
+              <form onSubmit={handleEditResearchSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <input
+                        type="text"
+                        value={editResearchForm.sub_title}
+                        onChange={(e) => setEditResearchForm({ ...editResearchForm, sub_title: e.target.value })}
+                        placeholder="分支标题"
+                        className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                      />
+                    </div>
+                    <div>
+                      <select
+                        value={editResearchForm.type}
+                        onChange={(e) => setEditResearchForm({ ...editResearchForm, type: e.target.value as 'official' | 'fan' })}
+                        className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                      >
+                        <option value="official">官方设定</option>
+                        <option value="fan">同好推测</option>
+                      </select>
+                    </div>
+                    <div>
+                      <textarea
+                        value={editResearchForm.content}
+                        onChange={(e) => setEditResearchForm({ ...editResearchForm, content: e.target.value })}
+                        placeholder="考据内容（支持 Markdown 格式）"
+                        className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                        rows={8}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        value={editResearchForm.image_url}
+                        onChange={(e) => setEditResearchForm({ ...editResearchForm, image_url: e.target.value })}
+                        placeholder="图片链接（可选）"
+                        className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                      />
+                      {editResearchForm.image_url && (
+                        <div className="mt-2">
+                          <img 
+                            src={editResearchForm.image_url} 
+                            alt="预览" 
+                            className="max-h-32 object-contain rounded"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        value={editResearchForm.author}
+                        onChange={(e) => setEditResearchForm({ ...editResearchForm, author: e.target.value })}
+                        placeholder="贡献者"
+                        className="w-full bg-transparent border border-white/30 rounded-md p-3 text-text focus:outline-none focus:ring-2 focus:ring-white/50"
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEditResearch(false);
+                          setEditingResearch(null);
+                        }}
+                        className="px-4 py-2 bg-white/20 rounded-md hover:bg-white/30 transition-colors"
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-text text-background rounded-md hover:bg-opacity-90 transition-colors"
+                        disabled={submitting}
+                      >
+                        {submitting ? '提交中...' : '保存'}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-serif-jiba mb-4">预览</h4>
+                    <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/10 h-full overflow-auto">
+                      <h2 className="text-xl font-serif-jiba mb-4">{editResearchForm.sub_title || '分支标题'}</h2>
+                      <div dangerouslySetInnerHTML={{ __html: previewContent || '<p>请输入内容...</p>' }} />
+                      {editResearchForm.image_url && (
+                        <div className="mt-4">
+                          <img 
+                            src={editResearchForm.image_url} 
+                            alt="预览" 
+                            className="max-w-full h-auto rounded"
+                          />
+                        </div>
+                      )}
+                      <div className="mt-4 flex justify-between items-center">
+                        <p className="text-sm text-white/60">贡献者: {editResearchForm.author || '未设置'}</p>
+                        <span className={`px-3 py-1 rounded-full text-xs ${editResearchForm.type === 'official' ? 'bg-blue-500/30 text-blue-300' : 'bg-purple-500/30 text-purple-300'}`}>
+                          {editResearchForm.type === 'official' ? '官方设定' : '同好推测'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {error && (
+                  <div className="mt-4 text-red-400 text-sm">{error}</div>
+                )}
+              </form>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 删除确认弹窗 */}
+        {showDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 max-w-md w-full border border-white/20">
+              <h3 className="text-xl font-serif-jiba mb-4">确认删除</h3>
+              <p className="text-white/80 mb-6">
+                {deleteType === 'topic' ? '确定要删除这个主题吗？相关的考据内容也会被删除。' : '确定要删除这个考据分支吗？'}
+              </p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 bg-white/20 rounded-md hover:bg-white/30 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={deleteType === 'topic' ? confirmDeleteTopic : confirmDeleteResearch}
+                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                  disabled={submitting}
+                >
+                  {submitting ? '删除中...' : '确认删除'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <motion.h1 
@@ -512,7 +949,7 @@ export default function WordHole() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
-                  className="cursor-pointer group"
+                  className="cursor-pointer group relative"
                   onClick={() => handleTopicClick(topic)}
                 >
                   <div className="bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden border border-white/20 hover:border-white/40 transition-colors h-full">
@@ -526,6 +963,31 @@ export default function WordHole() {
                       <div className="absolute top-3 left-3">
                         <span className="px-2 py-1 bg-white/20 rounded-full text-xs">{topic.category}</span>
                       </div>
+                      {/* 管理员操作按钮 */}
+                      {isAuthenticated && (
+                        <div className="absolute top-3 right-3 flex space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditTopic(topic);
+                            }}
+                            className="bg-white/20 hover:bg-white/30 rounded-full p-1.5 transition-colors"
+                            title="编辑"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTopic(topic.id);
+                            }}
+                            className="bg-white/20 hover:bg-white/30 rounded-full p-1.5 transition-colors"
+                            title="删除"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="p-4">
                       <h3 className="text-lg font-serif-jiba mb-2 line-clamp-2">{topic.title}</h3>
@@ -615,8 +1077,27 @@ export default function WordHole() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
-                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 shadow-lg flex flex-col gap-4"
+                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 shadow-lg flex flex-col gap-4 relative"
                 >
+                  {/* 管理员操作按钮 */}
+                  {isAuthenticated && (
+                    <div className="absolute top-3 right-3 flex space-x-2 z-10">
+                      <button
+                        onClick={() => handleEditResearch(research)}
+                        className="bg-white/20 hover:bg-white/30 rounded-full p-1.5 transition-colors"
+                        title="编辑"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDeleteResearch(research.id)}
+                        className="bg-white/20 hover:bg-white/30 rounded-full p-1.5 transition-colors"
+                        title="删除"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  )}
                   <div className="flex justify-between items-start">
                     <h2 className="text-xl font-serif-jiba">{research.sub_title}</h2>
                     <span className={`px-3 py-1 rounded-full text-xs ${research.type === 'official' ? 'bg-blue-500/30 text-blue-300' : 'bg-purple-500/30 text-purple-300'}`}>
