@@ -23,14 +23,14 @@ export default function Home() {
   
   if (isLoading) {
     return (
-      <div className="relative min-h-screen">
+      <div className="min-h-screen flex flex-col items-center justify-center relative">
         <LoadingScreen />
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 2, duration: 1 }}
           onClick={handleEnter}
-          className="absolute bottom-16 left-1/2 transform -translate-x-1/2 px-8 py-3 bg-text text-background rounded-full font-medium hover:bg-opacity-90 transition-colors"
+          className="px-8 py-3 bg-text text-background rounded-full font-medium hover:bg-opacity-90 transition-colors"
         >
           进入磁场
         </motion.button>
