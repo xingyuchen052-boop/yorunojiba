@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import LoadingScreen from '../components/LoadingScreen';
 import JunePole from '../components/JunePole';
@@ -11,11 +11,32 @@ import RainEffect from '../components/RainEffect';
 import RippleButton from '../components/RippleButton';
 import { Lamp, Bird, Sparkles } from 'lucide-react';
 
+const lyrics = [
+  '夜の磁場に包まれて',
+  '六月の電柱の陰で',
+  '言の葉の穴から見る',
+  '雨宿りの中で',
+  '旋律が心を撫でる',
+  '星空の下で歌う',
+  '音符が空を舞う',
+  '心の奥に響く音',
+];
+
 type Section = 'home' | 'june' | 'word' | 'rainy' | 'moonlight';
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentSection, setCurrentSection] = useState<Section>('home');
+  const [currentLyric, setCurrentLyric] = useState(lyrics[0]);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const randomIndex = Math.floor(Math.random() * lyrics.length);
+      setCurrentLyric(lyrics[randomIndex]);
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   const handleEnter = () => {
     setIsLoading(false);
@@ -24,16 +45,49 @@ export default function Home() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center relative">
-        <LoadingScreen />
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 2, duration: 1 }}
-          onClick={handleEnter}
-          className="px-8 py-3 bg-text text-background rounded-full font-medium hover:bg-opacity-90 transition-colors"
-        >
-          进入磁场
-        </motion.button>
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, ease: 'easeInOut' }}
+            className="text-4xl font-serif-jiba mb-8"
+          >
+            夜の磁場
+          </motion.div>
+          
+          <motion.div
+            key={currentLyric}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 1, ease: 'easeInOut' }}
+            className="text-2xl mb-16 font-serif-jiba"
+          >
+            {currentLyric}
+          </motion.div>
+          
+          <motion.div
+            animate={{
+              opacity: [0.3, 1, 0.3],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+            className="w-16 h-16 border-4 border-text border-t-transparent rounded-full mb-16 mx-auto"
+          />
+          
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 2, duration: 1 }}
+            onClick={handleEnter}
+            className="px-8 py-3 bg-text text-background rounded-full font-medium hover:bg-opacity-90 transition-colors"
+          >
+            进入磁场
+          </motion.button>
+        </div>
       </div>
     );
   }
